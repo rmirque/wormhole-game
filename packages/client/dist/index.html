@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WORMHOLE // SYSTEM v2.7</title>
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: #0a0a0a;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: 'VT323', 'Courier New', monospace;
+      color: #33ff33;
+      overflow: hidden;
+    }
+
+    /* CRT scanlines overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: repeating-linear-gradient(
+        0deg,
+        rgba(0, 0, 0, 0.15),
+        rgba(0, 0, 0, 0.15) 1px,
+        transparent 1px,
+        transparent 2px
+      );
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    /* CRT flicker */
+    body::after {
+      content: '';
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(18, 16, 16, 0.1);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 101;
+      animation: flicker 0.15s infinite;
+    }
+
+    @keyframes flicker {
+      0% { opacity: 0.02; }
+      50% { opacity: 0.05; }
+      100% { opacity: 0.02; }
+    }
+
+    .terminal-header {
+      margin-bottom: 15px;
+      text-align: center;
+    }
+
+    .terminal-header h1 {
+      font-size: 42px;
+      text-transform: uppercase;
+      letter-spacing: 8px;
+      color: #33ff33;
+      text-shadow: 
+        0 0 5px #33ff33,
+        0 0 10px #33ff33,
+        0 0 20px #33ff33;
+      margin-bottom: 5px;
+    }
+
+    .terminal-header .subtitle {
+      font-size: 16px;
+      color: #1a991a;
+      letter-spacing: 3px;
+    }
+
+    .terminal-header .status {
+      font-size: 14px;
+      color: #ff3333;
+      margin-top: 5px;
+      animation: blink 1s infinite;
+    }
+
+    @keyframes blink {
+      0%, 50% { opacity: 1; }
+      51%, 100% { opacity: 0.3; }
+    }
+
+    .crt-container {
+      position: relative;
+      border: 3px solid #1a4a1a;
+      border-radius: 8px;
+      padding: 8px;
+      background: #051105;
+      box-shadow: 
+        0 0 20px rgba(51, 255, 51, 0.2),
+        inset 0 0 100px rgba(51, 255, 51, 0.05);
+    }
+
+    .crt-container::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      border-radius: 5px;
+      background: radial-gradient(
+        ellipse at center,
+        transparent 0%,
+        rgba(0, 20, 0, 0.4) 100%
+      );
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .crt-container {
+      max-width: 95vw;
+      max-height: 75vh;
+      width: 1000px;
+      aspect-ratio: 5/3;
+    }
+
+    #gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #001100;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .controls {
+      margin-top: 15px;
+      text-align: center;
+      color: #1a991a;
+      font-size: 18px;
+      letter-spacing: 1px;
+    }
+
+    .controls p {
+      margin: 3px 0;
+    }
+
+    .key {
+      color: #33ff33;
+      background: rgba(51, 255, 51, 0.1);
+      padding: 2px 8px;
+      border: 1px solid #1a4a1a;
+      font-weight: normal;
+    }
+
+    .glitch {
+      position: relative;
+    }
+
+    .glitch::before,
+    .glitch::after {
+      content: attr(data-text);
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .glitch::before {
+      left: 2px;
+      text-shadow: -2px 0 #ff00ff;
+      clip: rect(44px, 450px, 56px, 0);
+      animation: glitch-anim 5s infinite linear alternate-reverse;
+    }
+
+    .glitch::after {
+      left: -2px;
+      text-shadow: -2px 0 #00ffff;
+      clip: rect(44px, 450px, 56px, 0);
+      animation: glitch-anim2 5s infinite linear alternate-reverse;
+    }
+
+    @keyframes glitch-anim {
+      0% { clip: rect(12px, 9999px, 52px, 0); }
+      20% { clip: rect(65px, 9999px, 11px, 0); }
+      40% { clip: rect(26px, 9999px, 85px, 0); }
+      60% { clip: rect(82px, 9999px, 33px, 0); }
+      80% { clip: rect(41px, 9999px, 63px, 0); }
+      100% { clip: rect(19px, 9999px, 77px, 0); }
+    }
+
+    @keyframes glitch-anim2 {
+      0% { clip: rect(65px, 9999px, 99px, 0); }
+      20% { clip: rect(11px, 9999px, 56px, 0); }
+      40% { clip: rect(88px, 9999px, 22px, 0); }
+      60% { clip: rect(33px, 9999px, 71px, 0); }
+      80% { clip: rect(77px, 9999px, 44px, 0); }
+      100% { clip: rect(52px, 9999px, 88px, 0); }
+    }
+  </style>
+  <script type="module" crossorigin src="/assets/index-C0WCrT7N.js"></script>
+</head>
+<body>
+  <div class="terminal-header">
+    <h1 class="glitch" data-text="WORMHOLE">WORMHOLE</h1>
+    <div class="subtitle">TACTICAL GRID SIMULATION // BUILD 2.7</div>
+    <div class="status">● SYSTEM ONLINE</div>
+  </div>
+  
+  <div class="crt-container">
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  
+  <div class="controls">
+    <p>[ <span class="key">W</span> / <span class="key">↑</span> ] THRUST  [ <span class="key">A</span> / <span class="key">←</span> ] ROTATE LEFT  [ <span class="key">D</span> / <span class="key">→</span> ] ROTATE RIGHT</p>
+    <p>[ <span class="key">SPACE</span> ] FIRE WEAPON  [ <span class="key">1</span> ][ <span class="key">2</span> ][ <span class="key">3</span> ][ <span class="key">4</span> ] UPLOAD SLOT (IN SINGULARITY)</p>
+    <p style="margin-top: 8px; opacity: 0.7;">ACQUIRE DATA ORBS >> UPLOAD TO ATTACK >> FIRE TO DEFEND >> SURVIVE</p>
+  </div>
+  
+</body>
+</html>

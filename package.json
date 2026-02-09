@@ -1,0 +1,14 @@
+{
+  "name": "wormhole",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "cd packages/client && npm run dev",
+    "build": "cd packages/shared && npm run build && cd ../client && npm run build"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  }
+}
