@@ -7,6 +7,7 @@ import { BotAI, Difficulty, DIFFICULTY_SETTINGS } from './BotAI.js';
 import { Wormhole } from './Wormhole.js';
 import { AttackResult, translateCargoToAttack } from './AttackTranslator.js';
 import { Bullet } from './Bullet.js';
+import { DEBUG } from './Debug.js';
 
 /**
  * Main game controller with multi-grid support for PvAI
@@ -184,23 +185,48 @@ export class Game {
   }
 
   private handleBankOrbs(sourceOwner: GridOwner, orbs: OrbType[]): void {
+    DEBUG.logAttackFlow('handleBankOrbs', { sourceOwner, orbCount: orbs.length, orbs });
+
     const sourceGrid = this.grids.get(sourceOwner);
-    if (!sourceGrid) return;
-    
+    if (!sourceGrid) {
+      DEBUG.logAttackFlow('ERROR: sourceGrid not found', { sourceOwner });
+      return;
+    }
+
     const attackResult = translateCargoToAttack(orbs, sourceGrid.ship, sourceGrid.wormhole.position);
+    DEBUG.logAttackFlow('attackTranslated', {
+      tier: attackResult.tier,
+      description: attackResult.description,
+      hazardCount: attackResult.hazards.length,
+      boostZoneCount: attackResult.boostZones.length
+    });
+
     this.spawnAttackToRandomTarget(sourceOwner, attackResult);
-    
+
     const sourceName = sourceOwner === 'player' ? 'Player' : sourceOwner.toUpperCase();
     this.addKillFeed(`${sourceName} >> ${attackResult.description}`);
   }
 
   private spawnAttackToRandomTarget(sourceOwner: GridOwner, attackResult: AttackResult): void {
-    const livingOpponents = Array.from(this.grids.values())
-      .filter(g => g.owner !== sourceOwner && !g.ship.isDead);
-    
-    if (livingOpponents.length === 0) return;
-    
+    DEBUG.logAttackFlow('spawnAttackToRandomTarget', { sourceOwner });
+
+    const allGrids = Array.from(this.grids.values());
+    DEBUG.logAttackFlow('allGrids', allGrids.map(g => ({ owner: g.owner, isDead: g.ship.isDead })));
+
+    const livingOpponents = allGrids.filter(g => g.owner !== sourceOwner && !g.ship.isDead);
+
+    DEBUG.logAttackFlow('livingOpponents', {
+      count: livingOpponents.length,
+      opponents: livingOpponents.map(g => g.owner)
+    });
+
+    if (livingOpponents.length === 0) {
+      DEBUG.logAttackFlow('ERROR: No living opponents!');
+      return;
+    }
+
     const target = livingOpponents[Math.floor(Math.random() * livingOpponents.length)];
+    DEBUG.logAttackFlow('targetSelected', { target: target.owner });
     target.spawnAttack(attackResult, sourceOwner);
   }
 

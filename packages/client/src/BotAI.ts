@@ -8,6 +8,7 @@ import { Orb, ORB_RADIUS } from './Orb.js';
 import { Wormhole, WORMHOLE_BANKING_RADIUS } from './Wormhole.js';
 import { Hazard, HazardType, Nuke } from './Hazard.js';
 import { GridState } from './GridState.js';
+import { DEBUG } from './Debug.js';
 
 // Bot difficulty settings
 export type Difficulty = 'easy' | 'medium' | 'hard';
@@ -143,6 +144,7 @@ export class BotAI {
     // Priority 3: BANK - if cargo >= threshold
     if (cargoFullness >= this.config.bankThreshold) {
       if (this.currentState !== BotState.BANK) {
+        DEBUG.logBotAction(this.grid.owner, 'stateChange->BANK', { cargoFullness, threshold: this.config.bankThreshold });
         this.currentState = BotState.BANK;
         this.targetPosition = this.grid.wormhole.position;
       }
@@ -214,11 +216,15 @@ export class BotAI {
   private executeBank(): void {
     const ship = this.grid.ship;
     const wormhole = this.grid.wormhole;
-    
+
     const distToWormhole = ship.position.sub(wormhole.position).length();
-    
+
     if (distToWormhole < WORMHOLE_BANKING_RADIUS) {
       // In banking zone, bank orbs
+      DEBUG.logBotAction(this.grid.owner, 'executeBank', {
+        cargoCount: ship.getCargoCount(),
+        distToWormhole
+      });
       this.grid.bankOrbs();
       // Reset state after banking
       this.currentState = BotState.COLLECT;

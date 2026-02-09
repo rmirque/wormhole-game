@@ -9,6 +9,7 @@ import { Orb, OrbType, ORB_RADIUS } from './Orb.js';
 import { ParticleSystem } from './ParticleSystem.js';
 import { Hazard, HazardType, SpeedBoostZone, SeekerDrone } from './Hazard.js';
 import { translateCargoToAttack, AttackResult } from './AttackTranslator.js';
+import { DEBUG } from './Debug.js';
 
 export type GridOwner = 'player' | 'bot-1' | 'bot-2' | 'bot-3';
 
@@ -147,20 +148,25 @@ export class GridState {
    * Handle bank orbs action
    */
   bankOrbs(): void {
-    if (this.wormhole.isInBankingZone(this.ship.position)) {
-      if (!this.ship.isCargoEmpty()) {
-        const bankedOrbs = this.ship.clearCargo();
-        
-        // Create particle effect
-        this.particles.createBankingBurst(this.wormhole.position, '#00ffff');
-        
-        for (const orbType of bankedOrbs) {
-          const color = this.getOrbColor(orbType);
-          this.particles.createBurst(this.wormhole.position, color, 5, 2, 3, 25);
-        }
+    const inZone = this.wormhole.isInBankingZone(this.ship.position);
+    const isEmpty = this.ship.isCargoEmpty();
+    DEBUG.logGridState(this.owner, 'bankOrbs', { inZone, isEmpty, cargoCount: this.ship.getCargoCount() });
 
-        // Notify that orbs were banked (for cross-grid attacks)
-        this.onBankOrbs?.(this.owner, bankedOrbs);
+    if (inZone && !isEmpty) {
+      const bankedOrbs = this.ship.clearCargo();
+      DEBUG.logGridState(this.owner, 'bankingOrbs', { count: bankedOrbs.length, orbs: bankedOrbs });
+
+      // Create particle effect
+      this.particles.createBankingBurst(this.wormhole.position, '#00ffff');
+
+      for (const orbType of bankedOrbs) {
+        const color = this.getOrbColor(orbType);
+        this.particles.createBurst(this.wormhole.position, color, 5, 2, 3, 25);
+      }
+
+      // Notify that orbs were banked (for cross-grid attacks)
+      DEBUG.logGridState(this.owner, 'calling onBankOrbs', { callbackExists: !!this.onBankOrbs });
+      this.onBankOrbs?.(this.owner, bankedOrbs);
 
         // Local attack result for display
         const attackResult = translateCargoToAttack(bankedOrbs, this.ship, this.wormhole.position);
@@ -183,15 +189,29 @@ export class GridState {
    * Spawn attack hazards (called when another grid banks orbs)
    */
   spawnAttack(attackResult: AttackResult, sourceOwner: GridOwner): void {
+    DEBUG.logGridState(this.owner, 'spawnAttack', {
+      from: sourceOwner,
+      hazardCount: attackResult.hazards.length,
+      boostZoneCount: attackResult.boostZones.length,
+      description: attackResult.description
+    });
+
     // Set targets for new seekers before adding to hazards
+    let seekerCount = 0;
     for (const hazard of attackResult.hazards) {
       if (hazard.type === HazardType.SEEKER) {
         (hazard as SeekerDrone).setTarget(this.ship);
+        seekerCount++;
       }
     }
-    
+
     this.hazards.push(...attackResult.hazards);
     this.boostZones.push(...attackResult.boostZones);
+
+    DEBUG.logGridState(this.owner, 'hazardsAdded', {
+      totalHazards: this.hazards.length,
+      seekerTargetsSet: seekerCount
+    });
 
     // Show attack message
     const sourceName = sourceOwner === 'player' ? 'Player' : sourceOwner.toUpperCase();
