@@ -181,7 +181,6 @@ export class GridState {
         } else {
           this.screenShake = 5;
         }
-      }
     }
   }
 
