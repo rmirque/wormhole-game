@@ -790,6 +790,7 @@ export class Renderer {
 
   /**
    * Render quadrant view - main player grid on left, bot grids on right
+   * Clean, spacious layout with proper containment
    */
   renderQuadrantView(
     allGrids: GridState[],
@@ -801,110 +802,199 @@ export class Renderer {
     gameOver: boolean,
     winner: GridOwner | null
   ): void {
-    const canvasWidth = this.canvas.width;
-    const canvasHeight = this.canvas.height;
+    const W = this.canvas.width;
+    const H = this.canvas.height;
     
-    // Margins and spacing
-    const margin = 10;
-    const gap = 15;
-    const topBarHeight = 35;
-    const bottomBarHeight = 50;
+    // Layout constants
+    const PAD = 8;
+    const GAP = 10;
+    const TOP_H = 28;
+    const BOT_H = 55;
     
-    // Available space for game area
-    const gameAreaTop = topBarHeight;
-    const gameAreaHeight = canvasHeight - topBarHeight - bottomBarHeight;
+    // Calculate areas
+    const gameTop = TOP_H + PAD;
+    const gameBot = H - BOT_H - PAD;
+    const gameH = gameBot - gameTop;
     
-    // Layout: Main view on left (65%), bots on right (35%)
-    const mainViewWidth = Math.floor((canvasWidth - margin * 2 - gap) * 0.65);
-    const spyViewWidth = canvasWidth - margin * 2 - gap - mainViewWidth;
-    const spyViewHeight = Math.floor((gameAreaHeight - (allGrids.length - 2) * gap) / (allGrids.length - 1));
+    // Player gets 70%, bots get 30%
+    const playerW = Math.floor((W - PAD * 2 - GAP) * 0.70);
+    const botX = PAD + playerW + GAP;
+    const botW = W - botX - PAD;
     
-    // Clear background
-    this.ctx.fillStyle = '#001100';
-    this.ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    // Clear
+    this.ctx.fillStyle = '#000800';
+    this.ctx.fillRect(0, 0, W, H);
     
-    // Draw top bar
-    this.ctx.fillStyle = 'rgba(51, 255, 51, 0.1)';
-    this.ctx.fillRect(0, 0, canvasWidth, topBarHeight - 5);
-    this.ctx.strokeStyle = '#33ff33';
+    // === TOP BAR ===
+    this.ctx.fillStyle = 'rgba(0, 40, 0, 0.8)';
+    this.ctx.fillRect(0, 0, W, TOP_H);
+    this.ctx.strokeStyle = '#1a5a1a';
     this.ctx.lineWidth = 1;
     this.ctx.beginPath();
-    this.ctx.moveTo(0, topBarHeight - 5);
-    this.ctx.lineTo(canvasWidth, topBarHeight - 5);
+    this.ctx.moveTo(0, TOP_H);
+    this.ctx.lineTo(W, TOP_H);
     this.ctx.stroke();
     
-    // Draw divider line
-    const dividerX = margin + mainViewWidth + gap / 2;
-    this.ctx.strokeStyle = '#1a4a1a';
+    // Top bar content
+    this.ctx.shadowBlur = 0;
+    this.ctx.font = '14px VT323, monospace';
+    
+    // Left: Status
+    this.ctx.fillStyle = '#33ff33';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText(`SYS:ONLINE FPS:${fps}`, PAD + 5, TOP_H - 8);
+    
+    // Right: Lives (compact, no overlap)
+    const livesText = '♥'.repeat(playerGrid.ship.lives) + '♡'.repeat(3 - playerGrid.ship.lives);
+    this.ctx.fillStyle = '#ff3333';
+    this.ctx.textAlign = 'right';
+    this.ctx.fillText(`LIVES:${livesText}`, W - PAD - 5, TOP_H - 8);
+    
+    // === PLAYER GRID (Main) ===
+    const pBox = { x: PAD, y: gameTop, w: playerW, h: gameH };
+    
+    // Border
+    this.ctx.strokeStyle = '#33ff33';
     this.ctx.lineWidth = 2;
-    this.ctx.beginPath();
-    this.ctx.moveTo(dividerX, gameAreaTop);
-    this.ctx.lineTo(dividerX, gameAreaTop + gameAreaHeight);
-    this.ctx.stroke();
+    this.ctx.strokeRect(pBox.x, pBox.y, pBox.w, pBox.h);
     
-    // Render player grid (main view)
+    // Render
     this.ctx.save();
     this.ctx.beginPath();
-    this.ctx.rect(margin, gameAreaTop, mainViewWidth, gameAreaHeight);
+    this.ctx.rect(pBox.x + 2, pBox.y + 2, pBox.w - 4, pBox.h - 4);
     this.ctx.clip();
     
-    const scaleX = mainViewWidth / WORLD_WIDTH;
-    const scaleY = gameAreaHeight / WORLD_HEIGHT;
-    const scale = Math.min(scaleX, scaleY);
-    const offsetX = (mainViewWidth - WORLD_WIDTH * scale) / 2;
-    const offsetY = (gameAreaHeight - WORLD_HEIGHT * scale) / 2;
+    const pScaleX = (pBox.w - 4) / WORLD_WIDTH;
+    const pScaleY = (pBox.h - 4) / WORLD_HEIGHT;
+    const pScale = Math.min(pScaleX, pScaleY);
+    const pOffX = (pBox.w - 4 - WORLD_WIDTH * pScale) / 2;
+    const pOffY = (pBox.h - 4 - WORLD_HEIGHT * pScale) / 2;
     
-    this.ctx.translate(margin + offsetX, gameAreaTop + offsetY);
-    this.ctx.scale(scale, scale);
+    this.ctx.translate(pBox.x + 2 + pOffX, pBox.y + 2 + pOffY);
+    this.ctx.scale(pScale, pScale);
     this.renderGridState(playerGrid, bullets, alpha, true);
     this.ctx.restore();
     
-    // Render bot grids (spy windows)
-    const botGrids = allGrids.filter(g => !g.isPlayer);
-    const spyX = margin + mainViewWidth + gap;
-    let spyY = gameAreaTop;
+    // === BOT GRIDS ===
+    const bots = allGrids.filter(g => !g.isPlayer);
+    const botH = (gameH - (bots.length - 1) * GAP) / bots.length;
+    let by = gameTop;
     
-    for (let i = 0; i < botGrids.length; i++) {
-      const botGrid = botGrids[i];
-      const actualSpyHeight = Math.min(spyViewHeight, (gameAreaHeight - (botGrids.length - 1) * gap) / botGrids.length);
+    for (let i = 0; i < bots.length; i++) {
+      const bot = bots[i];
+      const bBox = { x: botX, y: by, w: botW, h: botH };
       
-      // Draw spy window border
-      this.ctx.strokeStyle = botGrid.ship.color;
-      this.ctx.lineWidth = 2;
-      this.ctx.strokeRect(spyX - 2, spyY - 2, spyViewWidth + 4, actualSpyHeight + 4);
+      // Border with bot color
+      this.ctx.strokeStyle = bot.ship.color;
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(bBox.x, bBox.y, bBox.w, bBox.h);
       
-      // Clip and render
+      // Render
       this.ctx.save();
       this.ctx.beginPath();
-      this.ctx.rect(spyX, spyY, spyViewWidth, actualSpyHeight);
+      this.ctx.rect(bBox.x + 1, bBox.y + 1, bBox.w - 2, bBox.h - 2);
       this.ctx.clip();
       
-      const spyScaleX = (spyViewWidth - 10) / WORLD_WIDTH;
-      const spyScaleY = (actualSpyHeight - 10) / WORLD_HEIGHT;
-      const spyScale = Math.min(spyScaleX, spyScaleY);
-      const spyOffsetX = (spyViewWidth - WORLD_WIDTH * spyScale) / 2;
-      const spyOffsetY = (actualSpyHeight - WORLD_HEIGHT * spyScale) / 2;
+      const bScaleX = (bBox.w - 2) / WORLD_WIDTH;
+      const bScaleY = (bBox.h - 2) / WORLD_HEIGHT;
+      const bScale = Math.min(bScaleX, bScaleY);
+      const bOffX = (bBox.w - 2 - WORLD_WIDTH * bScale) / 2;
+      const bOffY = (bBox.h - 2 - WORLD_HEIGHT * bScale) / 2;
       
-      this.ctx.translate(spyX + spyOffsetX, spyY + spyOffsetY);
-      this.ctx.scale(spyScale, spyScale);
-      this.renderGridState(botGrid, [], alpha, false);
+      this.ctx.translate(bBox.x + 1 + bOffX, bBox.y + 1 + bOffY);
+      this.ctx.scale(bScale, bScale);
+      this.renderGridState(bot, [], alpha, false);
       this.ctx.restore();
       
-      // Bot label below spy window
-      this.ctx.fillStyle = botGrid.ship.color;
-      this.ctx.font = '12px VT323, monospace';
+      // Bot label overlay
+      this.ctx.fillStyle = bot.ship.color;
+      this.ctx.font = '10px VT323, monospace';
       this.ctx.textAlign = 'left';
+      this.ctx.shadowBlur = 0;
       this.ctx.fillText(
-        `${botGrid.owner.toUpperCase().replace('-', '-')} [${botGrid.ship.lives}♥ ${botGrid.ship.getCargoCount()}/4]`,
-        spyX,
-        spyY + actualSpyHeight + 14
+        `${bot.owner.toUpperCase().replace('-','')} ♥${bot.ship.lives} [${bot.ship.getCargoCount()}/4]`,
+        bBox.x + 4,
+        bBox.y + bBox.h - 4
       );
       
-      spyY += actualSpyHeight + gap + 20;
+      by += botH + GAP;
     }
     
-    // Render HUD overlay
-    this.renderMultiplayerHUD(playerGrid, fps, killFeed, gameOver, winner, margin, mainViewWidth, canvasHeight, topBarHeight, bottomBarHeight);
+    // === BOTTOM BAR ===
+    const botY = H - BOT_H + 5;
+    
+    // Left: Cargo slots
+    const slotSize = 22;
+    const slotGap = 4;
+    const cargo = playerGrid.ship.getCargo();
+    
+    // Label
+    this.ctx.fillStyle = '#1a991a';
+    this.ctx.font = '12px VT323, monospace';
+    this.ctx.textAlign = 'left';
+    this.ctx.fillText('BUFFER:', PAD + 5, botY + 15);
+    
+    // Slots
+    for (let i = 0; i < 4; i++) {
+      const sx = PAD + 50 + i * (slotSize + slotGap);
+      const sy = botY + 2;
+      
+      this.ctx.strokeStyle = cargo[i] ? '#33ff33' : '#0a330a';
+      this.ctx.lineWidth = 1;
+      this.ctx.strokeRect(sx, sy, slotSize, slotSize);
+      
+      if (cargo[i]) {
+        this.ctx.fillStyle = '#33ff33';
+        this.ctx.fillRect(sx + 2, sy + 2, slotSize - 4, slotSize - 4);
+      }
+      
+      // Slot number
+      this.ctx.fillStyle = '#1a5a1a';
+      this.ctx.font = '8px VT323, monospace';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(String(i + 1), sx + slotSize/2, sy + slotSize + 10);
+    }
+    
+    // Center: Controls
+    this.ctx.fillStyle = '#448844';
+    this.ctx.font = '11px VT323, monospace';
+    this.ctx.textAlign = 'center';
+    this.ctx.fillText('[SPACE] FIRE', W / 2, botY + 12);
+    this.ctx.fillText('[1][2][3][4] UPLOAD', W / 2, botY + 26);
+    
+    // Right: Kill feed (last 3 messages)
+    if (killFeed.length > 0) {
+      this.ctx.textAlign = 'right';
+      let ky = botY + 12;
+      for (let i = 0; i < Math.min(3, killFeed.length); i++) {
+        const msg = killFeed[i];
+        this.ctx.fillStyle = msg.includes('WINS') ? '#ccaa00' : msg.includes('destroyed') ? '#ff4444' : '#888888';
+        this.ctx.font = '10px VT323, monospace';
+        this.ctx.fillText(msg, W - PAD - 5, ky);
+        ky += 12;
+      }
+    }
+    
+    // === GAME OVER OVERLAY ===
+    if (gameOver) {
+      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
+      this.ctx.fillRect(0, 0, W, H);
+      
+      const won = winner === 'player';
+      this.ctx.fillStyle = won ? '#33ff33' : '#ff3333';
+      this.ctx.font = 'bold 48px VT323, monospace';
+      this.ctx.textAlign = 'center';
+      this.ctx.fillText(won ? 'VICTORY' : 'DEFEAT', W / 2, H / 2 - 20);
+      
+      this.ctx.fillStyle = '#ffffff';
+      this.ctx.font = '20px VT323, monospace';
+      const wName = winner === 'player' ? 'PLAYER' : winner?.toUpperCase() || 'UNKNOWN';
+      this.ctx.fillText(`${wName} WINS`, W / 2, H / 2 + 15);
+      
+      this.ctx.fillStyle = '#00ffff';
+      this.ctx.font = '14px VT323, monospace';
+      this.ctx.fillText('[SPACE] RESTART', W / 2, H / 2 + 45);
+    }
   }
 
   /**
@@ -988,165 +1078,6 @@ export class Renderer {
     this.ctx.fillRect(-8, -1, 4, 2);
 
     this.ctx.restore();
-  }
-
-  /**
-   * Render multiplayer HUD
-   */
-  private renderMultiplayerHUD(
-    playerGrid: GridState,
-    fps: number,
-    killFeed: string[],
-    gameOver: boolean,
-    winner: GridOwner | null,
-    margin: number,
-    mainViewWidth: number,
-    canvasHeight: number,
-    topBarHeight: number,
-    bottomBarHeight: number
-  ): void {
-    this.ctx.shadowBlur = 5;
-    this.ctx.font = '18px VT323, monospace';
-
-    // Top bar text - system status
-    this.ctx.fillStyle = '#33ff33';
-    this.ctx.textAlign = 'left';
-    this.ctx.fillText(`SYS: ONLINE | FPS: ${fps}`, margin, topBarHeight - 12);
-
-    // Player lives - heart icons in top bar
-    const livesX = this.canvas.width - margin - 80;
-    const livesY = topBarHeight - 20;
-    
-    for (let i = 0; i < 3; i++) {
-      const heartX = livesX + i * 25;
-      this.ctx.shadowBlur = 10;
-      this.ctx.shadowColor = '#ff3333';
-      
-      if (i < playerGrid.ship.lives) {
-        // Filled heart
-        this.ctx.fillStyle = '#ff3333';
-        this.drawHeart(heartX + 10, livesY + 10, 8);
-      } else {
-        // Empty heart outline
-        this.ctx.strokeStyle = '#552222';
-        this.ctx.lineWidth = 2;
-        this.drawHeartOutline(heartX + 10, livesY + 10, 8);
-      }
-    }
-    
-    // Lives label
-    this.ctx.shadowBlur = 5;
-    this.ctx.shadowColor = '#ff3333';
-    this.ctx.fillStyle = '#ff3333';
-    this.ctx.font = '14px VT323, monospace';
-    this.ctx.textAlign = 'right';
-    this.ctx.fillText('LIVES:', livesX - 5, topBarHeight - 12);
-
-    // Kill feed on right side (below top bar)
-    if (killFeed.length > 0) {
-      this.ctx.textAlign = 'right';
-      let feedY = topBarHeight + 25;
-      for (const message of killFeed) {
-        this.ctx.fillStyle = message.includes('WINS') ? '#ffff33' : '#ff3333';
-        this.ctx.fillText(message, this.canvas.width - margin, feedY);
-        feedY += 22;
-      }
-    }
-
-    // Bottom bar area
-    const bottomY = canvasHeight - bottomBarHeight + 15;
-    
-    // Player cargo at bottom center of main view
-    const slotSize = 24;
-    const slotSpacing = 6;
-    const totalWidth = 4 * slotSize + 3 * slotSpacing;
-    const startX = margin + (mainViewWidth - totalWidth) / 2;
-
-    this.ctx.fillStyle = '#1a991a';
-    this.ctx.textAlign = 'center';
-    this.ctx.fillText(
-      `[ DATA BUFFER: ${playerGrid.ship.getCargoCount()}/4 ]`,
-      margin + mainViewWidth / 2,
-      bottomY
-    );
-
-    const cargo = playerGrid.ship.getCargo();
-    for (let i = 0; i < 4; i++) {
-      const x = startX + i * (slotSize + slotSpacing);
-      const y = bottomY + 10;
-      const orbType = cargo[i];
-
-      this.ctx.strokeStyle = orbType ? '#33ff33' : '#1a4a1a';
-      this.ctx.lineWidth = 2;
-      this.ctx.strokeRect(x, y, slotSize, slotSize);
-
-      if (orbType) {
-        this.renderOrbIcon(x, y, slotSize, orbType);
-      }
-    }
-
-    // Controls hint
-    this.ctx.fillStyle = '#888888';
-    this.ctx.shadowBlur = 0;
-    this.ctx.font = '12px VT323, monospace';
-    this.ctx.fillText(
-      '[SPACE] FIRE  |  [1][2][3][4] UPLOAD SLOT',
-      margin + mainViewWidth / 2,
-      bottomY + 45
-    );
-
-    // Banking hint (when in zone)
-    if (!playerGrid.ship.isDead && playerGrid.bankingPulse > 0.3 && !playerGrid.ship.isCargoEmpty()) {
-      this.ctx.fillStyle = '#00ffff';
-      this.ctx.shadowBlur = 15;
-      this.ctx.shadowColor = '#00ffff';
-      this.ctx.font = '16px VT323, monospace';
-      this.ctx.fillText(
-        '>>> PRESS 1-4 TO UPLOAD DATA <<<',
-        margin + mainViewWidth / 2,
-        bottomY - 25
-      );
-      this.ctx.shadowBlur = 5;
-    }
-
-    // Game over overlay (full screen)
-    if (gameOver) {
-      this.ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-      this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-
-      const winnerName = winner === 'player' ? 'PLAYER' : winner?.toUpperCase() || 'UNKNOWN';
-      const isPlayerWin = winner === 'player';
-
-      this.ctx.fillStyle = isPlayerWin ? '#33ff33' : '#ff3333';
-      this.ctx.shadowBlur = 25;
-      this.ctx.shadowColor = isPlayerWin ? '#33ff33' : '#ff3333';
-      this.ctx.font = 'bold 60px VT323, monospace';
-      this.ctx.textAlign = 'center';
-      this.ctx.fillText(
-        isPlayerWin ? 'VICTORY!' : 'DEFEAT',
-        this.canvas.width / 2,
-        this.canvas.height / 2 - 40
-      );
-
-      this.ctx.fillStyle = '#ffffff';
-      this.ctx.font = '28px VT323, monospace';
-      this.ctx.fillText(
-        `${winnerName} WINS THE ROUND`,
-        this.canvas.width / 2,
-        this.canvas.height / 2 + 20
-      );
-
-      this.ctx.fillStyle = '#00ffff';
-      this.ctx.font = '20px VT323, monospace';
-      this.ctx.fillText(
-        'Press [SPACE] to restart simulation',
-        this.canvas.width / 2,
-        this.canvas.height / 2 + 70
-      );
-    }
-
-    this.ctx.shadowBlur = 0;
-    this.ctx.textAlign = 'left';
   }
 
   /**
