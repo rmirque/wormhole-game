@@ -21,7 +21,7 @@ export class Game {
   
   // Grid states (player + bots)
   private grids: Map<GridOwner, GridState> = new Map();
-  private playerGrid: GridState;
+  private playerGrid!: GridState;
   
   // Bot AI controllers
   private bots: Map<GridOwner, BotAI> = new Map();
@@ -190,7 +190,7 @@ export class Game {
     const attackResult = translateCargoToAttack(orbs, sourceGrid.ship, sourceGrid.wormhole.position);
     this.spawnAttackToRandomTarget(sourceOwner, attackResult);
     
-    const sourceName = sourceOwner === 'player' ? 'Player' : sourceOwner.toUpperCase().replace('-', '-');
+    const sourceName = sourceOwner === 'player' ? 'Player' : sourceOwner.toUpperCase();
     this.addKillFeed(`${sourceName} >> ${attackResult.description}`);
   }
 
@@ -248,6 +248,12 @@ export class Game {
       }
 
       this.accumulator += deltaTime;
+      
+      // Cap accumulator to prevent spiral of death (max 10 physics steps behind)
+      const maxAccumulator = PHYSICS_DT * 10;
+      if (this.accumulator > maxAccumulator) {
+        this.accumulator = maxAccumulator;
+      }
 
       while (this.accumulator >= PHYSICS_DT) {
         // Update shared wormhole
@@ -356,6 +362,9 @@ export class Game {
   private restart(): void {
     for (const grid of this.grids.values()) {
       grid.reset();
+    }
+    for (const bot of this.bots.values()) {
+      bot.reset();
     }
     this.bullets = [];
     this.gameOver = false;

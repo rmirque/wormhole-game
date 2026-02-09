@@ -19,6 +19,12 @@ import { GridState, GridOwner } from './GridState.js';
 import { Bullet } from './Bullet.js';
 import { BotAI } from './BotAI.js';
 
+// Type guards for hazard types
+function isAsteroid(h: Hazard): h is Asteroid { return h.type === HazardType.ASTEROID; }
+function isSeeker(h: Hazard): h is SeekerDrone { return h.type === HazardType.SEEKER; }
+function isMine(h: Hazard): h is Mine { return h.type === HazardType.MINE; }
+function isNuke(h: Hazard): h is Nuke { return h.type === HazardType.NUKE; }
+
 /**
  * Canvas renderer for the game
  */
@@ -598,19 +604,14 @@ export class Renderer {
     this.ctx.save();
     this.ctx.translate(hazard.position.x, hazard.position.y);
 
-    switch (hazard.type) {
-      case HazardType.ASTEROID:
-        this.renderAsteroid(hazard as Asteroid);
-        break;
-      case HazardType.SEEKER:
-        this.renderSeeker(hazard as SeekerDrone);
-        break;
-      case HazardType.MINE:
-        this.renderMine(hazard as Mine);
-        break;
-      case HazardType.NUKE:
-        this.renderNuke(hazard as Nuke);
-        break;
+    if (isAsteroid(hazard)) {
+      this.renderAsteroid(hazard);
+    } else if (isSeeker(hazard)) {
+      this.renderSeeker(hazard);
+    } else if (isMine(hazard)) {
+      this.renderMine(hazard);
+    } else if (isNuke(hazard)) {
+      this.renderNuke(hazard);
     }
 
     this.ctx.restore();
@@ -632,7 +633,7 @@ export class Renderer {
     const radius = asteroid.radius;
     for (let i = 0; i < 8; i++) {
       const angle = (i / 8) * Math.PI * 2;
-      const r = radius * (0.8 + Math.random() * 0.4); // Rough edges
+      const r = radius * asteroid.shapeOffsets[i]; // Use pre-generated offsets
       const x = Math.cos(angle) * r;
       const y = Math.sin(angle) * r;
       if (i === 0) this.ctx.moveTo(x, y);

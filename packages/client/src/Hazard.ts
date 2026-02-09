@@ -45,6 +45,7 @@ export class Asteroid implements Hazard {
   rotation: number = 0;
   rotationSpeed: number;
   isLarge: boolean = false;
+  shapeOffsets: number[] = []; // Pre-generated shape offsets for consistent rendering
 
   constructor(position: Vec2, velocity: Vec2, isLarge: boolean = false) {
     this.id = hazardIdCounter++;
@@ -55,6 +56,10 @@ export class Asteroid implements Hazard {
     this.lifetime = this.maxLifetime;
     this.rotation = Math.random() * Math.PI * 2;
     this.rotationSpeed = (Math.random() - 0.5) * 0.1;
+    // Generate consistent random shape
+    for (let i = 0; i < 8; i++) {
+      this.shapeOffsets.push(0.8 + Math.random() * 0.4);
+    }
   }
 
   update(): void {
@@ -249,6 +254,7 @@ export class Nuke implements Hazard {
   radius: number = 0; // Expands
   maxRadius: number = 375; // 75% of 500px grid
   lifetime: number;
+  maxLifetime: number;
   countdownTime: number = 5 * 60; // 5 seconds countdown
   detonated: boolean = false;
   explosionTime: number = 0;
@@ -259,7 +265,8 @@ export class Nuke implements Hazard {
   constructor(position: Vec2) {
     this.id = hazardIdCounter++;
     this.position = position;
-    this.lifetime = this.countdownTime + this.maxExplosionTime;
+    this.maxLifetime = this.countdownTime + this.maxExplosionTime;
+    this.lifetime = this.maxLifetime;
   }
 
   update(): void {

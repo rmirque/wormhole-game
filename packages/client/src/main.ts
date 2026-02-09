@@ -15,7 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   } catch (error) {
     console.error('WORMHOLE: Failed to initialize:', error);
-    const canvas = document.getElementById('gameCanvas');
+    const canvas = document.getElementById('gameCanvas') as HTMLCanvasElement | null;
     if (canvas) {
       const ctx = canvas.getContext('2d');
       if (ctx) {

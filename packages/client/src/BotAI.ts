@@ -117,7 +117,11 @@ export class BotAI {
     const cargoFullness = ship.getCargoCount() / MAX_CARGO_SLOTS;
     
     // Priority 1: FLEE_NUKE - if nuke countdown active
-    const nuke = hazards.find(h => h.type === HazardType.NUKE && !(h as Nuke).detonated) as Nuke | undefined;
+    const nuke = hazards.find((h): h is Nuke => {
+      if (h.type !== HazardType.NUKE) return false;
+      const n = h as unknown as Nuke;
+      return !n.detonated;
+    });
     if (nuke) {
       if (this.currentState !== BotState.FLEE_NUKE) {
         this.currentState = BotState.FLEE_NUKE;
@@ -246,9 +250,11 @@ export class BotAI {
    */
   private executeFleeNuke(): void {
     // Check if nuke still active
-    const nuke = this.grid.hazards.find(
-      h => h.type === HazardType.NUKE && !(h as Nuke).detonated
-    ) as Nuke | undefined;
+    const nuke = this.grid.hazards.find((h): h is Nuke => {
+      if (h.type !== HazardType.NUKE) return false;
+      const n = h as unknown as Nuke;
+      return !n.detonated;
+    });
     
     if (!nuke) {
       // Nuke detonated or expired, return to collect
@@ -388,5 +394,18 @@ export class BotAI {
    */
   getStateName(): string {
     return this.currentState;
+  }
+
+  /**
+   * Reset bot AI for new round
+   */
+  reset(): void {
+    this.currentState = BotState.COLLECT;
+    this.stateTimer = 0;
+    this.lastDecisionTime = performance.now();
+    this.pendingAction = null;
+    this.targetOrb = null;
+    this.targetPosition = null;
+    this.stopShip();
   }
 }

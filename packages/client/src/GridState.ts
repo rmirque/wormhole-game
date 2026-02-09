@@ -7,7 +7,7 @@ import { Ship, SHIP_COLLISION_RADIUS, MAX_CARGO_SLOTS } from './Ship.js';
 import { Wormhole, WORMHOLE_BANKING_RADIUS } from './Wormhole.js';
 import { Orb, OrbType, ORB_RADIUS } from './Orb.js';
 import { ParticleSystem } from './ParticleSystem.js';
-import { Hazard, SpeedBoostZone, SeekerDrone } from './Hazard.js';
+import { Hazard, HazardType, SpeedBoostZone, SeekerDrone } from './Hazard.js';
 import { translateCargoToAttack, AttackResult } from './AttackTranslator.js';
 
 export type GridOwner = 'player' | 'bot-1' | 'bot-2' | 'bot-3';
@@ -97,11 +97,7 @@ export class GridState {
 
     // Update hazards
     for (const hazard of this.hazards) {
-      if (hazard.type === 'seeker') {
-        (hazard as SeekerDrone).update();
-      } else {
-        hazard.update();
-      }
+      hazard.update();
     }
 
     // Update boost zones
@@ -187,15 +183,15 @@ export class GridState {
    * Spawn attack hazards (called when another grid banks orbs)
    */
   spawnAttack(attackResult: AttackResult, sourceOwner: GridOwner): void {
-    this.hazards.push(...attackResult.hazards);
-    this.boostZones.push(...attackResult.boostZones);
-    
-    // Set targets for seekers
-    for (const hazard of this.hazards) {
-      if (hazard.type === 'seeker') {
+    // Set targets for new seekers before adding to hazards
+    for (const hazard of attackResult.hazards) {
+      if (hazard.type === HazardType.SEEKER) {
         (hazard as SeekerDrone).setTarget(this.ship);
       }
     }
+    
+    this.hazards.push(...attackResult.hazards);
+    this.boostZones.push(...attackResult.boostZones);
 
     // Show attack message
     const sourceName = sourceOwner === 'player' ? 'Player' : sourceOwner.toUpperCase();

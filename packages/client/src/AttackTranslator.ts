@@ -316,7 +316,7 @@ function spawnAsteroidWall(wormholePosition: Vec2): Asteroid[] {
   const count = 8;
 
   let startX = 0, startY = 0;
-  let velocity: Vec2;
+  let velocity: Vec2 = Vec2.zero();
 
   switch (spawnEdge) {
     case 0: // Top
